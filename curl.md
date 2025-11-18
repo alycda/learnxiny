@@ -68,8 +68,8 @@ curl wttr.in/London
 curl wttr.in/Tokyo
 # Add ?format=3 for one-line output: curl wttr.in/London?format=3
 
-# Get a random excuse to say no
-curl https://no-api.vercel.app/api/no
+# Get a random excuse
+curl https://excuser-three.vercel.app/v1/excuse
 
 # Unshorten/resolve a shortened URL (see where it redirects)
 curl -sI https://bit.ly/short-url | grep -i location
