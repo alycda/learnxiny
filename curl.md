@@ -46,6 +46,76 @@ curl -sS https://api.example.com/data
 
 # Download with progress bar
 curl -# -O https://example.com/largefile.zip
+
+# Modern readable syntax with double-dash (introduced in recent versions)
+curl --head https://example.com        # Same as -I
+curl --location https://example.com    # Same as -L
+curl --output file.html https://example.com  # Same as -o
+```
+
+## Quick & Practical Examples
+
+Before diving deeper, here are some fun and useful curl commands you can try right now:
+
+```bash
+# Get your public IP address
+curl ifconfig.me
+curl checkip.amazonaws.com
+curl https://api.ipify.org
+
+# Get weather forecast for your city
+curl wttr.in/London
+curl wttr.in/Tokyo
+# Add ?format=3 for one-line output: curl wttr.in/London?format=3
+
+# Get a random excuse to say no
+curl https://no-api.vercel.app/api/no
+
+# Unshorten/resolve a shortened URL (see where it redirects)
+curl -sI https://bit.ly/short-url | grep -i location
+# Or get the final URL after all redirects:
+curl -Ls -o /dev/null -w %{url_effective} https://bit.ly/short-url
+
+# Get word definition using dictionary protocol
+curl dict://dict.org/d:computer
+curl dict://dict.org/d:programming
+
+# Check if a website is up (just get HTTP status code)
+curl -s -o /dev/null -w "%{http_code}" https://example.com
+
+# Currency conversion (if service is available)
+curl "https://api.exchangerate-api.com/v4/latest/USD"
+
+# Get your user agent string as seen by servers
+curl https://httpbin.org/user-agent
+
+# Pastebin-like sharing via curl
+echo "Hello World" | curl -F 'file=@-' https://0x0.st
+```
+
+## Working with JSON responses (jq integration)
+
+curl pairs perfectly with jq for parsing JSON responses:
+
+```bash
+# Install jq first: brew install jq (macOS) or apt-get install jq (Linux)
+
+# Pretty print JSON response
+curl -s https://api.github.com/users/octocat | jq '.'
+
+# Extract specific fields
+curl -s https://api.github.com/users/octocat | jq '.name'
+curl -s https://api.github.com/users/octocat | jq '.name, .bio, .public_repos'
+
+# Extract nested data
+curl -s https://httpbin.org/headers | jq '.headers["User-Agent"]'
+
+# Filter arrays
+curl -s https://api.github.com/users/octocat/repos | jq '.[].name'
+
+# Combine curl and jq for API automation
+STARS=$(curl -s https://api.github.com/repos/curl/curl | jq '.stargazers_count')
+echo "curl has $STARS stars on GitHub"
 ```
 
 ## HTTP Methods
@@ -167,6 +237,22 @@ curl --digest -u username:password \
 # NTLM authentication
 curl --ntlm -u username:password \
   https://api.example.com
+
+# AWS Signature Version 4 authentication (AWS SigV4)
+# Authenticates with AWS services using IAM credentials
+curl --aws-sigv4 "aws:amz:us-east-1:s3" \
+  --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+  https://my-bucket.s3.us-east-1.amazonaws.com/file.txt
+
+# AWS SigV4 example with EC2
+export AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+export AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+curl --aws-sigv4 "aws:amz:us-east-1:ec2" \
+  --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+  "https://ec2.us-east-1.amazonaws.com/?Action=DescribeInstances&Version=2016-11-15"
+
+# Format: --aws-sigv4 "provider:service:region:service"
+# Common providers: aws (Amazon), goog (Google), azure (Microsoft)
 ```
 
 ## Cookies
@@ -237,34 +323,57 @@ echo "test data" | curl -X POST \
 ## Downloads
 
 ```bash
-# Resume download with -C (continue-at)
+# Resume interrupted download with -C (continue-at) - ESSENTIAL for large files!
 curl -C - -O https://example.com/largefile.zip
 # -C - automatically determines where to resume
+# If download stops at 65MB of 100MB, running again continues from 65MB
 
-# Limit download rate (bandwidth throttling)
-curl --limit-rate 100K -O https://example.com/file.zip
-# Limits to 100 KB/s
+# Example: Resume a partially downloaded file
+curl -C - -# -O https://releases.ubuntu.com/22.04/ubuntu-22.04-desktop-amd64.iso
 
 # Download multiple files
 curl -O https://example.com/file1.zip \
      -O https://example.com/file2.zip
 
+# Parallel downloads with --parallel (curl 7.66.0+)
+curl --parallel \
+     -O https://example.com/file1.zip \
+     -O https://example.com/file2.zip \
+     -O https://example.com/file3.zip
+# Downloads all files simultaneously instead of sequentially
+
+# Parallel with maximum connections
+curl --parallel --parallel-max 3 \
+     -O https://example.com/file[1-10].zip
+# Limits to 3 simultaneous downloads
+
 # Download with URL globbing
 curl -O https://example.com/file[1-10].jpg
 # Downloads file1.jpg through file10.jpg
+
+# Parallel globbing for faster batch downloads
+curl --parallel -O https://example.com/image[1-20].jpg
+# Downloads 20 images in parallel
 
 # Download with custom output names using globbing
 curl https://example.com/image[1-3].jpg -o "photo_#1.jpg"
 # Saves as photo_1.jpg, photo_2.jpg, photo_3.jpg
 
+# Limit download rate (bandwidth throttling)
+curl --limit-rate 100K -O https://example.com/file.zip
+# Limits to 100 KB/s (useful to avoid saturating connection)
+
 # Range requests (partial content)
 curl -r 0-999 https://example.com/file.bin
 # Downloads first 1000 bytes
 
-# Parallel downloads (not built-in, but common pattern)
-# Use xargs or GNU parallel:
-# cat urls.txt | xargs -P 4 -n 1 curl -O
-# Downloads 4 files in parallel
+# Download with progress bar instead of meter
+curl -# -O https://example.com/largefile.zip
+# Shows: ###################################  45.2%
+
+# Alternative: Use xargs for older curl versions without --parallel
+cat urls.txt | xargs -P 4 -n 1 curl -O
+# Downloads 4 files in parallel using xargs
 ```
 
 ## Timeouts and Retries
@@ -416,6 +525,190 @@ curl --interface eth0 https://example.com
 # Custom DNS server
 curl --dns-servers 8.8.8.8,8.8.4.4 \
   https://example.com
+
+# HAProxy PROXY protocol header (for load balancers)
+curl --haproxy-protocol https://example.com
+# Sends PROXY protocol v1 header before HTTP request
+# Used when connecting through HAProxy or similar load balancers
+```
+
+## Beyond HTTP: Other Protocols
+
+curl supports 30+ protocols beyond HTTP. Here are some practical examples:
+
+```bash
+# Dictionary Protocol - Get word definitions
+curl dict://dict.org/d:curl
+curl dict://dict.org/d:HTTP
+curl dict://dict.org/d:network
+
+# Show available dictionaries
+curl dict://dict.org/show:db
+
+# MQTT - Publish/Subscribe messaging (curl 7.71.0+)
+# Publish a message to MQTT broker
+curl mqtt://test.mosquitto.org:1883/demo/topic \
+  --data "Hello from curl"
+
+# Subscribe to MQTT topic (requires keeping connection open)
+curl mqtt://test.mosquitto.org:1883/demo/topic
+
+# IMAP - Read emails
+# List mailboxes
+curl --user username:password \
+  imaps://imap.gmail.com
+
+# Check inbox
+curl --user username:password \
+  imaps://imap.gmail.com/INBOX
+
+# Read specific email (message 1)
+curl --user username:password \
+  "imaps://imap.gmail.com/INBOX;UID=1"
+
+# For Gmail, use app-specific password
+curl --user "user@gmail.com:app-password" \
+  "imaps://imap.gmail.com/INBOX?ALL"
+
+# POP3 - Retrieve emails
+curl --user username:password \
+  pop3s://pop.gmail.com
+
+# Get specific message
+curl --user username:password \
+  pop3s://pop.gmail.com/1
+
+# SMTP - Send email
+curl --mail-from sender@example.com \
+  --mail-rcpt recipient@example.com \
+  --upload-file email.txt \
+  smtp://smtp.example.com:587 \
+  --user username:password
+
+# FTP - File transfer
+# List directory
+curl ftp://ftp.example.com/
+
+# Download file
+curl -O ftp://ftp.example.com/file.txt
+
+# Upload file
+curl -T localfile.txt ftp://ftp.example.com/ \
+  --user username:password
+
+# FTPS (FTP over SSL)
+curl -T file.txt ftps://secure.ftp.com/ \
+  --user username:password
+
+# SFTP (SSH File Transfer Protocol)
+curl -u username:password \
+  sftp://example.com/path/to/file.txt
+
+# SCP - Secure copy
+curl -u username:password \
+  scp://example.com/path/to/file.txt
+
+# Telnet - Connect to telnet server
+curl telnet://towel.blinkenlights.nl
+# (Famous Star Wars ASCII animation)
+
+# LDAP - Query directory services
+curl "ldap://ldap.example.com/dc=example,dc=com"
+
+# FILE - Read local files (yes, curl can read local files!)
+curl file:///etc/hosts
+curl file:///Users/username/document.txt
+
+# TFTP - Trivial File Transfer Protocol
+curl -T file.txt tftp://192.168.1.100/
+```
+
+## Performance Timing and Debugging
+
+Get detailed performance metrics for every phase of a request:
+
+```bash
+# Quick timing - just total time
+curl -w "Total time: %{time_total}s\n" -o /dev/null -s \
+  https://example.com
+
+# Detailed timing breakdown
+curl -w "\n
+DNS Lookup:        %{time_namelookup}s
+TCP Connect:       %{time_connect}s
+TLS Handshake:     %{time_appconnect}s
+Pre-transfer:      %{time_pretransfer}s
+Start Transfer:    %{time_starttransfer}s
+Redirect:          %{time_redirect}s
+                   ----------
+Total:             %{time_total}s
+" -o /dev/null -s https://example.com
+
+# Create a reusable timing format file
+cat > curl-timing.txt << 'EOF'
+    time_namelookup:  %{time_namelookup}s\n
+       time_connect:  %{time_connect}s\n
+    time_appconnect:  %{time_appconnect}s\n
+   time_pretransfer:  %{time_pretransfer}s\n
+      time_redirect:  %{time_redirect}s\n
+ time_starttransfer:  %{time_starttransfer}s\n
+                    ----------\n
+         time_total:  %{time_total}s\n
+        size_download: %{size_download} bytes\n
+       speed_download: %{speed_download} bytes/sec\n
+          http_code:  %{http_code}\n
+EOF
+
+# Use the timing format file
+curl -w "@curl-timing.txt" -o /dev/null -s https://api.github.com
+
+# Measure API endpoint performance (10 requests average)
+for i in {1..10}; do
+  curl -w "%{time_total}\n" -o /dev/null -s https://api.example.com
+done | awk '{sum+=$1; sumsq+=$1*$1} END {
+  print "Average:", sum/NR, "s";
+  print "Std Dev:", sqrt(sumsq/NR - (sum/NR)^2), "s"
+}'
+
+# All available write-out variables for debugging:
+# %{content_type}       - Content-Type of response
+# %{errormsg}           - Error message if failed
+# %{exitcode}           - Numerical exit code
+# %{filename_effective} - Final filename
+# %{ftp_entry_path}     - Initial path for FTP
+# %{http_code}          - HTTP status code
+# %{http_connect}       - HTTP CONNECT response code
+# %{http_version}       - HTTP version used
+# %{local_ip}           - Local IP address
+# %{local_port}         - Local port number
+# %{method}             - HTTP method used
+# %{num_connects}       - Number of connections made
+# %{num_headers}        - Number of response headers
+# %{num_redirects}      - Number of redirects followed
+# %{proxy_ssl_verify_result} - Proxy SSL cert verification result
+# %{redirect_url}       - URL of redirect
+# %{referer}            - Referer header
+# %{remote_ip}          - Remote IP address
+# %{remote_port}        - Remote port number
+# %{response_code}      - Response code
+# %{scheme}             - URL scheme used
+# %{size_download}      - Bytes downloaded
+# %{size_header}        - Bytes of headers
+# %{size_request}       - Bytes sent in request
+# %{size_upload}        - Bytes uploaded
+# %{speed_download}     - Download speed (bytes/sec)
+# %{speed_upload}       - Upload speed (bytes/sec)
+# %{ssl_verify_result}  - SSL cert verification result
+# %{time_appconnect}    - Time for SSL/TLS handshake
+# %{time_connect}       - Time to establish TCP
+# %{time_namelookup}    - Time for DNS resolution
+# %{time_pretransfer}   - Time before file transfer starts
+# %{time_redirect}      - Time spent in redirects
+# %{time_starttransfer} - Time to first byte
+# %{time_total}         - Total operation time
+# %{url}                - URL that was fetched
+# %{url_effective}      - Final URL after redirects
+# %{urlnum}             - URL index (for multiple URLs)
 ```
 
 ## Testing and Debugging
