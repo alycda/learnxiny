@@ -77,8 +77,9 @@ curl -sI https://bit.ly/short-url | grep -i location
 curl -Ls -o /dev/null -w %{url_effective} https://bit.ly/short-url
 
 # Get word definition using dictionary protocol
-curl dict://dict.org/d:computer
-curl dict://dict.org/d:programming
+# https://curl.se/mail/archive-2015-12/0011.html
+# curl dict://dict.org/d:computer
+# curl dict://dict.org/d:programming
 
 # Check if a website is up (just get HTTP status code)
 curl -s -o /dev/null -w "%{http_code}" https://example.com
